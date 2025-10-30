@@ -1,0 +1,23 @@
+[remap]
+
+importer="wav"
+type="AudioStreamSample"
+path="res://.import/achievement_unlocked.wav-4d794bb08bf47110db6deb6aae9f549e.sample"
+
+[deps]
+
+source_file="res://addons/milestone/sounds/achievement_unlocked.wav"
+dest_files=[ "res://.import/achievement_unlocked.wav-4d794bb08bf47110db6deb6aae9f549e.sample" ]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

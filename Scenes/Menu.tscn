@@ -1,0 +1,19 @@
+[gd_scene load_steps=2 format=3 uid="uid://dbfc8vw1b80dl"]
+
+[ext_resource type="Script" uid="uid://0qx7jujucyji" path="res://Scripts/Menu.gd" id="1_t0j7j"]
+
+[node name="Menu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -29.000008
+offset_top = -1.3232231e-05
+offset_right = 276.61896
+offset_bottom = 441.4287
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.719, 0.7)
+script = ExtResource("1_t0j7j")
+
+[node name="MainMenuBackground" type="Sprite2D" parent="."]

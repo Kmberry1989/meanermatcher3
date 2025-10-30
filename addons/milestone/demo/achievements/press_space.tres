@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="Achievement" load_steps=4 format=3 uid="uid://doic53twsemos"]
+
+[ext_resource type="Texture2D" uid="uid://cg3b84ak8bsrv" path="res://addons/milestone/icons/hidden_achievement.svg" id="1_fenub"]
+[ext_resource type="Script" uid="uid://dtyojmellf4e5" path="res://addons/milestone/scripts/achievements/achievement.gd" id="2_fenub"]
+[ext_resource type="Texture2D" uid="uid://bikhvxxhsx08q" path="res://addons/milestone/demo/icons/press_space.png" id="2_g1qov"]
+
+[resource]
+script = ExtResource("2_fenub")
+id = "press_space"
+icon = ExtResource("2_g1qov")
+icon_filter = 1
+name = "Press Space"
+description = "Press the space key."
+hidden = true
+considered_rare = true
+progress_goal = 1.0
+metadata/_custom_type_script = "uid://dtyojmellf4e5"

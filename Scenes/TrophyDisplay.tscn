@@ -1,0 +1,36 @@
+[gd_scene load_steps=3 format=3 uid="uid://d1sp1ayamb02mpln"]
+
+[ext_resource path="res://Scripts/TrophyDisplay.gd" type="Script" id="1_abcde"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_0"]
+bg_color = Color(0.3, 0.3, 0.3, 0.5)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[node name="TrophyDisplay" type="PanelContainer"]
+custom_minimum_size = Vector2(200, 50)
+theme_override_styles/panel = SubResource("StyleBoxFlat_0")
+script = ExtResource("1_abcde")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="Icon" type="TextureRect" parent="HBoxContainer"]
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Name" type="Label" parent="HBoxContainer/VBoxContainer"]
+layout_mode = 2
+text = "Trophy Name"
+
+[node name="Description" type="Label" parent="HBoxContainer/VBoxContainer"]
+layout_mode = 2
+text = "Trophy Description"
+autowrap_mode = 2

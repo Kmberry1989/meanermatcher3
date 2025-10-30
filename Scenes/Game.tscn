@@ -1,0 +1,69 @@
+[gd_scene load_steps=9 format=3 uid="uid://e7vgj8yx3fl1"]
+
+[ext_resource type="Script" uid="uid://dii1sya8ggoev" path="res://Scripts/Grid.gd" id="1"]
+[ext_resource type="Script" uid="uid://cevp0ntsh6ktx" path="res://Scripts/Background.gd" id="2"]
+[ext_resource type="PackedScene" uid="uid://dlothci5o3owq" path="res://Scenes/GameUI.tscn" id="3"]
+[ext_resource type="PackedScene" uid="uid://1b2c3d4e5f6" path="res://Scenes/TrophyNotification.tscn" id="4"]
+[ext_resource type="Texture2D" uid="uid://cnmisbe00ul5o" path="res://Assets/Visuals/score.png" id="4_fgofq"]
+[ext_resource type="Script" uid="uid://jti4a1wly7tv" path="res://Scripts/Game.gd" id="5"]
+[ext_resource type="Script" uid="uid://dgkmmb8k5lvto" path="res://Scripts/NetGame.gd" id="6_net"]
+[ext_resource type="Script" path="res://Scripts/DotPool.gd" id="7"]
+
+[node name="Game" type="Node"]
+script = ExtResource("5")
+
+[node name="Panel" type="Panel" parent="."]
+show_behind_parent = true
+offset_left = -1.0000001
+offset_top = 2.9999998
+offset_right = 72.0
+offset_bottom = 87.979485
+scale = Vector2(7.3892803, 11.858191)
+
+[node name="Grid" type="Node2D" parent="."]
+script = ExtResource("1")
+width = 7
+height = 7
+offset = 80
+grid_scale = 0.9
+y_offset = -2
+
+
+
+[node name="Background" type="TextureRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2")
+fade_duration = 2.0
+hold_duration = 8.0
+
+[node name="Score" type="Sprite2D" parent="."]
+visible = false
+position = Vector2(-102.86981, 314.88596)
+scale = Vector2(0.43045825, 0.31847325)
+texture = ExtResource("4_fgofq")
+
+[node name="GameUI" parent="." instance=ExtResource("3")]
+top_level = true
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="TrophyNotification" parent="CanvasLayer" instance=ExtResource("4")]
+offset_left = -156.0
+offset_top = 2.0
+offset_right = -16.0
+offset_bottom = 102.0
+
+[node name="Score2" type="Sprite2D" parent="."]
+visible = false
+position = Vector2(32, 112)
+scale = Vector2(0.25, 0.25)
+texture = ExtResource("4_fgofq")
+
+[node name="PlayerContainer" type="Node2D" parent="."]
+
+[node name="NetGame" type="Node" parent="."]
+script = ExtResource("6_net")

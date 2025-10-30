@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3 uid="uid://d2edamb02mpln"]
+
+[ext_resource type="PackedScene" path="res://Scenes/Dot.tscn" id="2"]
+[ext_resource type="Texture2D" path="res://Assets/Dots/rochelleavatar.png" id="2_t8ngr"]
+
+[node name="red_dot" instance=ExtResource("2")]
+color = "red"
+
+[node name="Sprite2D" parent="." index="0"]
+scale = Vector2(0.25, 0.25)
+texture = ExtResource("2_t8ngr")

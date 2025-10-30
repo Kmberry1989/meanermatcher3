@@ -1,0 +1,15 @@
+[remap]
+
+importer="ogg_vorbis"
+type="AudioStreamOGGVorbis"
+path="res://.import/slot_win.ogg-16332ab13b3b5c4fcee634ca02b82977.oggstr"
+
+[deps]
+
+source_file="res://Assets/Sounds/slot_win.ogg"
+dest_files=[ "res://.import/slot_win.ogg-16332ab13b3b5c4fcee634ca02b82977.oggstr" ]
+
+[params]
+
+loop=true
+loop_offset=0

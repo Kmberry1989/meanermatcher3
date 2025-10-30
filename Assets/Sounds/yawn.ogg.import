@@ -1,0 +1,15 @@
+[remap]
+
+importer="ogg_vorbis"
+type="AudioStreamOGGVorbis"
+path="res://.import/yawn.ogg-037e8e3417693cf172deec9d670584f7.oggstr"
+
+[deps]
+
+source_file="res://Assets/Sounds/yawn.ogg"
+dest_files=[ "res://.import/yawn.ogg-037e8e3417693cf172deec9d670584f7.oggstr" ]
+
+[params]
+
+loop=true
+loop_offset=0

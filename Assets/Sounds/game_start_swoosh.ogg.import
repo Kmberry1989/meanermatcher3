@@ -1,0 +1,15 @@
+[remap]
+
+importer="ogg_vorbis"
+type="AudioStreamOGGVorbis"
+path="res://.import/game_start_swoosh.ogg-79cff327d0e1a6f53ff7c112483a2baa.oggstr"
+
+[deps]
+
+source_file="res://Assets/Sounds/game_start_swoosh.ogg"
+dest_files=[ "res://.import/game_start_swoosh.ogg-79cff327d0e1a6f53ff7c112483a2baa.oggstr" ]
+
+[params]
+
+loop=true
+loop_offset=0

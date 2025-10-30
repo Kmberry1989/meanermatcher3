@@ -1,0 +1,106 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/MultiplayerLobby.gd" id="1_zzmsn"]
+
+[node name="MultiplayerLobby" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_zzmsn")
+
+[node name="Panel" type="Panel" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -180.0
+offset_right = 240.0
+offset_bottom = 180.0
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+text = "Simple Multiplayer"
+horizontal_alignment = 1
+
+[node name="Url" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+text = "Server: ws://127.0.0.1:9090"
+horizontal_alignment = 1
+
+[node name="Buttons" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="FindMatch" type="Button" parent="Panel/VBox/Buttons"]
+layout_mode = 2
+text = "Find Match"
+
+[node name="CancelMatch" type="Button" parent="Panel/VBox/Buttons"]
+layout_mode = 2
+text = "Cancel"
+
+[node name="Leave" type="Button" parent="Panel/VBox/Buttons"]
+layout_mode = 2
+text = "Leave"
+
+[node name="Ready" type="Button" parent="Panel/VBox/Buttons"]
+layout_mode = 2
+text = "Ready"
+
+[node name="Start" type="Button" parent="Panel/VBox/Buttons"]
+layout_mode = 2
+text = "Start"
+
+[node name="ModeHBox" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ModeLabel" type="Label" parent="Panel/VBox/ModeHBox"]
+layout_mode = 2
+text = "Mode"
+
+[node name="Mode" type="OptionButton" parent="Panel/VBox/ModeHBox"]
+layout_mode = 2
+item_count = 2
+selected = 0
+popup/item_0/text = "Co-op"
+popup/item_0/id = 0
+popup/item_1/text = "1v1 Race"
+popup/item_1/id = 1
+
+[node name="TargetHBox" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TargetLabel" type="Label" parent="Panel/VBox/TargetHBox"]
+layout_mode = 2
+text = "Target Score"
+
+[node name="Target" type="SpinBox" parent="Panel/VBox/TargetHBox"]
+layout_mode = 2
+min_value = 10.0
+max_value = 10000.0
+step = 10.0
+value = 500.0
+
+[node name="Status" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+horizontal_alignment = 1
+text = "Connecting..."

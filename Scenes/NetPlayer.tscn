@@ -1,0 +1,16 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/NetPlayer.gd" id="1_vq8sj"]
+
+[node name="NetPlayer" type="Node2D"]
+script = ExtResource("1_vq8sj")
+z_index = 2000
+
+[node name="Marker" type="ColorRect" parent="."]
+size = Vector2(16, 16)
+color = Color(0.2, 0.8, 1, 0.9)
+offset_left = -8.0
+offset_top = -8.0
+offset_right = 8.0
+offset_bottom = 8.0
+

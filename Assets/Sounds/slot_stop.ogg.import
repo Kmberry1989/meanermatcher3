@@ -1,0 +1,15 @@
+[remap]
+
+importer="ogg_vorbis"
+type="AudioStreamOGGVorbis"
+path="res://.import/slot_stop.ogg-c0de0ab5e5aea39dad57c37f8d9a564a.oggstr"
+
+[deps]
+
+source_file="res://Assets/Sounds/slot_stop.ogg"
+dest_files=[ "res://.import/slot_stop.ogg-c0de0ab5e5aea39dad57c37f8d9a564a.oggstr" ]
+
+[params]
+
+loop=true
+loop_offset=0

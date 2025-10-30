@@ -1,0 +1,15 @@
+[remap]
+
+importer="ogg_vorbis"
+type="AudioStreamOGGVorbis"
+path="res://.import/Music_fx_drummer_showoff.ogg-36b8b4e3eb6040634907aba87ce025c2.oggstr"
+
+[deps]
+
+source_file="res://Assets/Sounds/Music_fx_drummer_showoff.ogg"
+dest_files=[ "res://.import/Music_fx_drummer_showoff.ogg-36b8b4e3eb6040634907aba87ce025c2.oggstr" ]
+
+[params]
+
+loop=true
+loop_offset=0
