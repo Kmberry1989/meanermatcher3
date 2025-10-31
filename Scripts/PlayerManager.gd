@@ -2,11 +2,11 @@ extends Node
 
 onready var firebase = get_node_or_null("/root/Firebase")
 
-signal level_up(new_level)
-signal frame_changed(new_frame)
-signal coins_changed(new_amount)
+signal level_up
+signal frame_changed
+signal coins_changed
 signal avatar_changed
-signal meaner_meter_changed(current, max)
+signal meaner_meter_changed
 signal meaner_meter_filled()
 
 var player_uid = ""
@@ -205,7 +205,7 @@ func check_objectives():
 		player_data["objectives"]["time_played_1hr"] = true
 		unlock_trophy("time_played_1hr_trophy")
 
-signal trophy_unlocked(trophy_resource)
+signal trophy_unlocked
 
 func unlock_trophy(trophy_id):
 	if not trophy_id in player_data["unlocks"]["trophies"]:
