@@ -1,6 +1,6 @@
-﻿@tool
+tool
 class_name AuthProvider
-extends RefCounted
+extends Reference
 
 var redirect_uri: String = ""
 var access_token_uri: String = ""
@@ -30,4 +30,3 @@ func get_client_secret() -> String:
 
 func get_oauth_params() -> String:
 	return ""
-

@@ -1,6 +1,6 @@
 extends Node
 
-@export var player_scene_path: String = "res://Scenes/NetPlayer.tscn"
+export var player_scene_path: String = "res://Scenes/NetPlayer.tscn"
 
 var _players: Dictionary = {}
 var _local_id: String = ""
@@ -10,13 +10,13 @@ var session_seed: int = 0
 
 func _ready() -> void:
 	if Engine.has_singleton("WebSocketClient") or (typeof(WebSocketClient) != TYPE_NIL):
-		WebSocketClient.connection_succeeded.connect(_on_connected)
-		WebSocketClient.room_joined.connect(_on_room_joined)
-		WebSocketClient.room_state.connect(_on_room_state)
-		WebSocketClient.player_joined.connect(_on_player_joined)
-		WebSocketClient.player_left.connect(_on_player_left)
-		WebSocketClient.message_received.connect(_on_message)
-		WebSocketClient.start_game.connect(_on_start_game)
+		WebSocketClient.connect("connection_succeeded", self, "_on_connected")
+		WebSocketClient.connect("room_joined", self, "_on_room_joined")
+		WebSocketClient.connect("room_state", self, "_on_room_state")
+		WebSocketClient.connect("player_joined", self, "_on_player_joined")
+		WebSocketClient.connect("player_left", self, "_on_player_left")
+		WebSocketClient.connect("message_received", self, "_on_message")
+		WebSocketClient.connect("start_game", self, "_on_start_game")
 		
 func _on_connected() -> void:
 	# No-op
@@ -74,7 +74,7 @@ func _ensure_player(pid: String) -> void:
 	if scene == null:
 		push_error("MultiplayerManager: player scene missing at: " + player_scene_path)
 		return
-	var inst = scene.instantiate()
+	var inst = scene.instance()
 	inst.name = "Player_" + pid
 	cont.add_child(inst)
 	var local := (pid == _local_id)

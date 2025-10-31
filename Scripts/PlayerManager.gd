@@ -1,6 +1,6 @@
 extends Node
 
-@onready var firebase = get_node_or_null("/root/Firebase")
+onready var firebase = get_node_or_null("/root/Firebase")
 
 signal level_up(new_level)
 signal frame_changed(new_frame)

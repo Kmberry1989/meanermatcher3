@@ -1,15 +1,14 @@
 ## @meta-authors Kyle Szklenski
-## @meta-version 2.6
+## @meta-version 2.5
 ## The Firebase Godot API.
 ## This singleton gives you access to your Firebase project and its capabilities. Using this requires you to fill out some Firebase configuration settings. It currently comes with four modules.
 ## 	- [code]Auth[/code]: Manages user authentication (logging and out, etc...)
 ## 	- [code]Database[/code]: A NonSQL realtime database for managing data in JSON structures.
 ## 	- [code]Firestore[/code]: Similar to Database, but stores data in collections and documents, among other things.
 ## 	- [code]Storage[/code]: Gives access to Cloud Storage; perfect for storing files like images and other assets.
-## 	- [code]RemoteConfig[/code]: Gives access to Remote Config functionality; allows you to download your app's configuration from Firebase, do A/B testing, and more.
 ##
 ## @tutorial https://github.com/GodotNuts/GodotFirebase/wiki
-@tool
+tool
 extends Node
 
 const _ENVIRONMENT_VARIABLES : String = "firebase/environment_variables"
@@ -18,51 +17,46 @@ const _AUTH_PROVIDERS : String = "firebase/auth_providers"
 
 ## @type FirebaseAuth
 ## The Firebase Authentication API.
-@onready var Auth := $Auth
+onready var Auth := $Auth
 
 ## @type FirebaseFirestore
 ## The Firebase Firestore API.
-@onready var Firestore := $Firestore
+onready var Firestore := $Firestore
 
 ## @type FirebaseDatabase
 ## The Firebase Realtime Database API.
-@onready var Database := $Database
+onready var Database := $Database
 
 ## @type FirebaseStorage
 ## The Firebase Storage API.
-@onready var Storage := $Storage
+onready var Storage := $Storage
 
 ## @type FirebaseDynamicLinks
 ## The Firebase Dynamic Links API.
-@onready var DynamicLinks := $DynamicLinks
+onready var DynamicLinks := $DynamicLinks
 
 ## @type FirebaseFunctions
 ## The Firebase Cloud Functions API
-@onready var Functions := $Functions
+onready var Functions := $Functions
 
-## @type FirebaseRemoteConfig
-## The Firebase Remote Config API
-@onready var RemoteConfigAPI := $RemoteConfig
-
-@export var emulating : bool = false
+export var emulating : bool = false
 
 # Configuration used by all files in this project
 # These values can be found in your Firebase Project
-# See the README checked Github for how to access
+# See the README on Github for how to access
 var _config : Dictionary = {
 	"apiKey": "",
 	"authDomain": "",
-	"databaseURL": "https://meaner-matcher-default-rtdb.firebaseio.com",
-	"projectId": "meaner-matcher",
-	"storageBucket": "meaner-matcher.appspot.com",
-	"messagingSenderId": "413636882791",
-	"appId": "1:413636882791:web:834dae40038c4d81f9ffc2",
-	"measurementId": "G-WYG9G4ED1R",
+	"databaseURL": "",
+	"projectId": "",
+	"storageBucket": "",
+	"messagingSenderId": "",
+	"appId": "",
+	"measurementId": "",
 	"clientId": "",
-	"clientSecret": "",
+	"clientSecret" : "",
 	"domainUriPrefix" : "",
 	"functionsGeoZone" : "",
-	"cacheLocation":"",
 	"emulators": {
 		"ports" : {
 			"authentication" : "",
@@ -102,35 +96,27 @@ func _check_emulating() -> void:
 			module._check_emulating()
 
 func _load_config() -> void:
-	if not (_config.apiKey != "" and _config.authDomain != ""):
-		var env := ConfigFile.new()
-		var err := env.load("res://addons/godot-firebase/.env")
-		if err != OK:
-			# Fallback for web exports where a public env is shipped
-			err = env.load("res://addons/godot-firebase/.env.public")
+	if _config.apiKey != "" and _config.authDomain != "":
+		pass
+	else:
+		var env = ConfigFile.new()
+		var err = env.load("res://addons/godot-firebase/.env")
 		if err == OK:
 			for key in _config.keys():
-				var config_value = _config[key]
-				if key == "emulators" and config_value.has("ports"):
-					for port in config_value["ports"].keys():
-						config_value["ports"][port] = env.get_value(_EMULATORS_PORTS, port, "")
-				elif key == "auth_providers":
-					for provider in config_value.keys():
-						config_value[provider] = env.get_value(_AUTH_PROVIDERS, provider, "")
+				if key == "emulators":
+					for port in _config[key]["ports"].keys():
+						_config[key]["ports"][port] = env.get_value(_EMULATORS_PORTS, port, "")
+				if key == "auth_providers":
+					for provider in _config[key].keys():
+						_config[key][provider] = env.get_value(_AUTH_PROVIDERS, provider, "")
 				else:
 					var value : String = env.get_value(_ENVIRONMENT_VARIABLES, key, "")
 					if value == "":
-						# Allow fallback: if clientId missing, use webClientId if provided
-						if key == "clientId":
-							var web_client := env.get_value(_ENVIRONMENT_VARIABLES, "webClientId", "")
-							if str(web_client) != "":
-								_config.clientId = str(web_client)
-						else:
-							_print("The value for `%s` is not configured. If you are not planning to use it, ignore this message." % key)
+						_print("The value for `%s` is not configured. If you are not planning to use it, ignore this message." % key)
 					else:
 						_config[key] = value
 		else:
-			_printerr("Unable to read .env or .env.public at path 'res://addons/godot-firebase/'")
+			_printerr("Unable to read .env file at path 'res://addons/godot-firebase/.env'")
 
 	_setup_modules()
 
@@ -139,15 +125,16 @@ func _setup_modules() -> void:
 		module._set_config(_config)
 		if not module.has_method("_on_FirebaseAuth_login_succeeded"):
 			continue
-		Auth.login_succeeded.connect(module._on_FirebaseAuth_login_succeeded)
-		Auth.signup_succeeded.connect(module._on_FirebaseAuth_login_succeeded)
-		Auth.token_refresh_succeeded.connect(module._on_FirebaseAuth_token_refresh_succeeded)
-		Auth.logged_out.connect(module._on_FirebaseAuth_logout)
+		Auth.connect("login_succeeded", module, "_on_FirebaseAuth_login_succeeded")
+		Auth.connect("signup_succeeded", module, "_on_FirebaseAuth_login_succeeded")
+		Auth.connect("token_refresh_succeeded", module, "_on_FirebaseAuth_token_refresh_succeeded")
+		Auth.connect("logged_out", module, "_on_FirebaseAuth_logout")
+
 
 # -------------
 
 func _printerr(error : String) -> void:
-	printerr("[Firebase Error] >> " + error)
+	printerr("[Firebase Error] >> "+error)
 
 func _print(msg : String) -> void:
-	print("[Firebase] >> " + str(msg))
+	print("[Firebase] >> "+msg)

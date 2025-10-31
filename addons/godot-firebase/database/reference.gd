@@ -1,8 +1,8 @@
-## @meta-authors BackAt50Ft
-## @meta-version 2.4
+## @meta-authors TODO
+## @meta-version 2.3
 ## A reference to a location in the Realtime Database.
 ## Documentation TODO.
-@tool
+tool
 class_name FirebaseDatabaseReference
 extends Node
 
@@ -10,12 +10,8 @@ signal new_data_update(data)
 signal patch_data_update(data)
 signal delete_data_update(data)
 
-signal once_successful(dataSnapshot)
-signal once_failed()
-
 signal push_successful()
 signal push_failed()
-
 
 const ORDER_BY : String = "orderBy"
 const LIMIT_TO_FIRST : String = "limitToFirst"
@@ -24,15 +20,17 @@ const START_AT : String = "startAt"
 const END_AT : String = "endAt"
 const EQUAL_TO : String = "equalTo"
 
-@onready var _pusher := $Pusher
-@onready var _listener := $Listener
-@onready var _store := $DataStore
-
+var _pusher : HTTPRequest
+var _listener : Node
+var _store : FirebaseDatabaseStore
 var _auth : Dictionary
 var _config : Dictionary
 var _filter_query : Dictionary
 var _db_path : String
 var _cached_filter : String
+var _push_queue : Array = []
+var _update_queue : Array = []
+var _delete_queue : Array = []
 var _can_connect_to_host : bool = false
 
 const _put_tag : String = "put"
@@ -50,22 +48,7 @@ const _escaped_quote : String = '"'
 const _equal_tag : String = "="
 const _key_filter_tag : String = "$key"
 
-var _headers : PackedStringArray = []
-
-func _ready() -> void:
-#region Set Listener info
-	$Listener.new_sse_event.connect(on_new_sse_event)
-	var base_url = _get_list_url(false).trim_suffix(_separator)
-	var extended_url = _separator + _db_path + _get_remaining_path(false)
-	var port = -1
-	if Firebase.emulating:
-		port = int(_config.emulators.ports.realtimeDatabase)
-	$Listener.connect_to_host(base_url, extended_url, port)
-#endregion Set Listener info
-
-#region Set Pusher info
-	$Pusher.queue_request_completed.connect(on_push_request_complete)
-#endregion Set Pusher info
+var _headers : PoolStringArray = []
 
 func set_db_path(path : String, filter_query_dict : Dictionary) -> void:
 	_db_path = path
@@ -75,6 +58,24 @@ func set_auth_and_config(auth_ref : Dictionary, config_ref : Dictionary) -> void
 	_auth = auth_ref
 	_config = config_ref
 
+func set_pusher(pusher_ref : HTTPRequest) -> void:
+	if !_pusher:
+		_pusher = pusher_ref
+		add_child(_pusher)
+		_pusher.connect("request_completed", self, "on_push_request_complete")
+
+func set_listener(listener_ref : Node) -> void:
+	if !_listener:
+		_listener = listener_ref
+		add_child(_listener)
+		_listener.connect("new_sse_event", self, "on_new_sse_event")
+		var base_url = _get_list_url(false).trim_suffix(_separator)
+		var extended_url = _separator + _db_path + _get_remaining_path(false)
+		var port = -1
+		if Firebase.emulating:
+			port = int(_config.emulators.ports.realtimeDatabase)
+		_listener.connect_to_host(base_url, extended_url, port)
+
 func on_new_sse_event(headers : Dictionary, event : String, data : Dictionary) -> void:
 	if data:
 		var command = event
@@ -83,13 +84,19 @@ func on_new_sse_event(headers : Dictionary, event : String, data : Dictionary) -
 			if command == _put_tag:
 				if data.path == _separator and data.data and data.data.keys().size() > 0:
 					for key in data.data.keys():
-						new_data_update.emit(FirebaseResource.new(_separator + key, data.data[key]))
+						emit_signal("new_data_update", FirebaseResource.new(_separator + key, data.data[key]))
 				elif data.path != _separator:
-					new_data_update.emit(FirebaseResource.new(data.path, data.data))
+					emit_signal("new_data_update", FirebaseResource.new(data.path, data.data))
 			elif command == _patch_tag:
-				patch_data_update.emit(FirebaseResource.new(data.path, data.data))
+				emit_signal("patch_data_update", FirebaseResource.new(data.path, data.data))
 			elif command == _delete_tag:
-				delete_data_update.emit(FirebaseResource.new(data.path, data.data))
+				emit_signal("delete_data_update", FirebaseResource.new(data.path, data.data))
+	pass
+
+func set_store(store_ref : FirebaseDatabaseStore) -> void:
+	if !_store:
+		_store = store_ref
+		add_child(_store)
 
 func update(path : String, data : Dictionary) -> void:
 	path = path.strip_edges(true, true)
@@ -97,17 +104,27 @@ func update(path : String, data : Dictionary) -> void:
 	if path == _separator:
 		path = ""
 
-	var to_update = JSON.stringify(data)
-	
-	var resolved_path = (_get_list_url() + _db_path + "/" + path + _get_remaining_path())
-	_pusher.request(resolved_path, _headers, HTTPClient.METHOD_PATCH, to_update)
+	var to_update = JSON.print(data)
+	var status = _pusher.get_http_client_status()
+	if status == HTTPClient.STATUS_DISCONNECTED || status != HTTPClient.STATUS_REQUESTING:
+		var resolved_path = (_get_list_url() + _db_path + "/" + path + _get_remaining_path())
+
+		_pusher.request(resolved_path, _headers, true, HTTPClient.METHOD_PATCH, to_update)
+	else:
+		_update_queue.append({"path": path, "data": data})
 
 func push(data : Dictionary) -> void:
-	var to_push = JSON.stringify(data)
-	_pusher.request(_get_list_url() + _db_path + _get_remaining_path(), _headers, HTTPClient.METHOD_POST, to_push)
+	var to_push = JSON.print(data)
+	if _pusher.get_http_client_status() == HTTPClient.STATUS_DISCONNECTED:
+		_pusher.request(_get_list_url() + _db_path + _get_remaining_path(), _headers, true, HTTPClient.METHOD_POST, to_push)
+	else:
+		_push_queue.append(data)
 
 func delete(reference : String) -> void:
-	_pusher.request(_get_list_url() + _db_path + _separator + reference + _get_remaining_path(), _headers, HTTPClient.METHOD_DELETE, "")
+	if _pusher.get_http_client_status() == HTTPClient.STATUS_DISCONNECTED:
+		_pusher.request(_get_list_url() + _db_path + _separator + reference + _get_remaining_path(), _headers, true, HTTPClient.METHOD_DELETE, "")
+	else:
+		_delete_queue.append(reference)
 
 #
 # Returns a deep copy of the current local copy of the data stored at this reference in the Firebase
@@ -121,7 +138,7 @@ func get_data() -> Dictionary:
 
 func _get_remaining_path(is_push : bool = true) -> String:
 	var remaining_path = ""
-	if _filter_query_empty() or is_push:
+	if !_filter_query or is_push:
 		remaining_path = _json_list_tag + _query_tag + _auth_tag + Firebase.Auth.auth.idtoken
 	else:
 		remaining_path = _json_list_tag + _query_tag + _get_filter() + _filter_tag + _auth_tag + Firebase.Auth.auth.idtoken
@@ -139,10 +156,10 @@ func _get_list_url(with_port:bool = true) -> String:
 
 
 func _get_filter():
-	if _filter_query_empty():
+	if !_filter_query:
 		return ""
 	# At the moment, this means you can't dynamically change your filter; I think it's okay to specify that in the rules.
-	if _cached_filter != "":
+	if !_cached_filter:
 		_cached_filter = ""
 		if _filter_query.has(ORDER_BY):
 			_cached_filter += ORDER_BY + _equal_tag + _escaped_quote + _filter_query[ORDER_BY] + _escaped_quote
@@ -153,9 +170,6 @@ func _get_filter():
 			_cached_filter += _filter_tag + key + _equal_tag + _filter_query[key]
 
 	return _cached_filter
-
-func _filter_query_empty() -> bool:
-	return _filter_query == null or _filter_query.is_empty()
 
 #
 # Appropriately updates the current local copy of the data stored at this reference in the Firebase
@@ -169,8 +183,18 @@ func _route_data(command : String, path : String, data) -> void:
 	elif command == _delete_tag:
 		_store.delete(path, data)
 
-func on_push_request_complete(result : int, response_code : int, headers : PackedStringArray, body : PackedByteArray) -> void:
+func on_push_request_complete(result : int, response_code : int, headers : PoolStringArray, body : PoolByteArray) -> void:
 	if response_code == HTTPClient.RESPONSE_OK:
-		push_successful.emit()
+		emit_signal("push_successful")
 	else:
-		push_failed.emit()
+		emit_signal("push_failed")
+
+	if _push_queue.size() > 0:
+		push(_push_queue.pop_front())
+		return
+	if _update_queue.size() > 0:
+		var e = _update_queue.pop_front()
+		update(e['path'], e['data'])
+		return
+	if _delete_queue.size() > 0:
+		delete(_delete_queue.pop_front())

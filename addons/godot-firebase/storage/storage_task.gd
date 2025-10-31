@@ -1,9 +1,9 @@
-## @meta-authors SIsilicon, Kyle 'backat50ft' Szklenski
+## @meta-authors SIsilicon
 ## @meta-version 2.2
 ## An object that keeps track of an operation performed by [StorageReference].
-@tool
+tool
 class_name StorageTask
-extends RefCounted
+extends Reference
 
 enum Task {
 	TASK_UPLOAD,
@@ -17,23 +17,22 @@ enum Task {
 	TASK_MAX ## The number of [enum Task] constants.
 }
 
-## Emitted when the task is finished. Returns data depending checked the success and action of the task.
+## Emitted when the task is finished. Returns data depending on the success and action of the task.
 signal task_finished(data)
 
-## Boolean to determine if this request involves metadata only
-var is_meta : bool
+## @type StorageReference
+## The [StorageReference] that created this [StorageTask].
+var ref # Storage Reference (Can't static type due to cyclic reference)
 
 ## @enum Task
 ## @default -1
 ## @setter set_action
 ## The kind of operation this [StorageTask] is keeping track of.
-var action : int = -1 : set = set_action
+var action : int = -1 setget set_action
 
-var ref # Should not be needed, damnit
-
-## @default PackedByteArray()
+## @default PoolByteArray()
 ## Data that the tracked task will/has returned.
-var data = PackedByteArray() # data can be of any type.
+var data = PoolByteArray() # data can be of any type.
 
 ## @default 0.0
 ## The percentage of data that has been received.
@@ -48,9 +47,9 @@ var result : int = -1
 ## Whether the task is finished processing.
 var finished : bool = false
 
-## @default PackedStringArray()
+## @default PoolStringArray()
 ## The returned HTTP response headers.
-var response_headers := PackedStringArray()
+var response_headers := PoolStringArray()
 
 ## @default 0
 ## @enum HTTPClient.ResponseCode
@@ -59,7 +58,7 @@ var response_code : int = 0
 
 var _method : int = -1
 var _url : String = ""
-var _headers : PackedStringArray = PackedStringArray()
+var _headers : PoolStringArray = PoolStringArray()
 
 func set_action(value : int) -> void:
 	action = value

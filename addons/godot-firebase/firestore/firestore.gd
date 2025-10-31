@@ -12,7 +12,7 @@
 ## (source: [url=https://firebase.google.com/docs/firestore]Firestore[/url])
 ##
 ## @tutorial https://github.com/GodotNuts/GodotFirebase/wiki/Firestore
-@tool
+tool
 class_name FirebaseFirestore
 extends Node
 
@@ -27,12 +27,6 @@ enum Requests {
 	QUERY       ## Firestore is processing a [code]query()[/code] request checked a collection.
 }
 
-# TODO: Implement cache size limit
-const CACHE_SIZE_UNLIMITED = -1
-
-const _CACHE_EXTENSION : String = ".fscache"
-const _CACHE_RECORD_FILE : String = "RmlyZXN0b3JlIGNhY2hlLXJlY29yZHMu.fscache"
-
 const _AUTHORIZATION_HEADER : String = "Authorization: Bearer "
 
 const _MAX_POOLED_REQUEST_AGE = 30
@@ -40,27 +34,28 @@ const _MAX_POOLED_REQUEST_AGE = 30
 ## The code indicating the request Firestore is processing.
 ## See @[enum FirebaseFirestore.Requests] to get a full list of codes identifiers.
 ## @enum Requests
-var request: int = -1
+var request : int = -1
 
 ## A Dictionary containing all authentication fields for the current logged user.
 ## @type Dictionary
-var auth: Dictionary
+var auth : Dictionary
 
-var _config: Dictionary = {}
-var _cache_loc: String
+var _config : Dictionary = {}
 var _encrypt_key := "5vg76n90345f7w390346" if Utilities.is_web() else OS.get_unique_id()
 
 
-var _base_url: String = ""
-var _extended_url: String = "projects/[PROJECT_ID]/databases/(default)/documents/"
-var _query_suffix: String = ":runQuery"
-var _agg_query_suffix: String = ":runAggregationQuery"
+var _base_url : String = ""
+var _extended_url : String = "projects/[PROJECT_ID]/databases/(default)/documents/"
+var _query_suffix : String = ":runQuery"
 
 #var _connect_check_node : HTTPRequest
 
-var _request_list_node: HTTPRequest
-var _requests_queue: Array = []
-var _current_query: FirestoreQuery
+var _request_list_node : HTTPRequest
+var _requests_queue : Array = []
+var _current_query : FirestoreQuery
+
+func _ready() -> void:
+	pass
 
 ## Returns a reference collection by its [i]path[/i].
 ##
@@ -73,7 +68,7 @@ func collection(path : String) -> FirestoreCollection:
 		if coll is FirestoreCollection:
 			if coll.collection_name == path:
 				return coll
-			
+
 	var coll : FirestoreCollection = FirestoreCollection.new()
 	coll._extended_url = _extended_url
 	coll._base_url = _base_url
@@ -87,69 +82,50 @@ func collection(path : String) -> FirestoreCollection:
 ## Issue a query checked your Firestore database.
 ##
 ## [b]Note:[/b] a [code]FirestoreQuery[/code] object needs to be created to issue the query.
-## When awaited, this function returns the resulting array from the query.
+## This method will return a [code]FirestoreTask[/code] object, representing a reference to the request issued.
+## If saved into a variable, the [code]FirestoreTask[/code] object can be used to yield checked the [code]result_query(result)[/code] signal, or the more generic [code]task_finished(result)[/code] signal.
 ##
 ## ex.
-## [code]var query_results = await Firebase.Firestore.query(FirestoreQuery.new())[/code]
+## [code]var query_task : FirestoreTask = Firebase.Firestore.query(FirestoreQuery.new())[/code]
+## [code]await query_task.task_finished[/code]
+## Since the emitted signal is holding an argument, it can be directly retrieved as a return variable from the [code]yield()[/code] function.
+##
+## ex.
+## [code]var result : Array = await query_task.task_finished[/code]
 ##
 ## [b]Warning:[/b] It currently does not work offline!
 ##
 ## @args query
 ## @arg-types FirestoreQuery
-## @return Array[FirestoreDocument]
+## @return FirestoreTask
 func query(query : FirestoreQuery) -> Array:
-	if query.aggregations.size() > 0:
-		Firebase._printerr("Aggregation query sent with normal query call: " + str(query))
-		return []
-		
 	var task : FirestoreTask = FirestoreTask.new()
 	task.action = FirestoreTask.Task.TASK_QUERY
-	var body: Dictionary = { structuredQuery = query.query }
-	var url: String = _base_url + _extended_url + query.sub_collection_path + _query_suffix
-	
+	var body : Dictionary = { structuredQuery = query.query }
+	var url : String = _base_url + _extended_url + _query_suffix
+
 	task.data = query
-	task._fields = JSON.stringify(body)
+	task._fields = JSON.print(body)
 	task._url = url
 	_pooled_request(task)
-	return await _handle_task_finished(task)
-	
-## Issue an aggregation query (sum, average, count) against your Firestore database;
-## cheaper than a normal query and counting (for instance) values directly.
-##
-## [b]Note:[/b] a [code]FirestoreQuery[/code] object needs to be created to issue the query.
-## When awaited, this function returns the result from the aggregation query.
+	yield(_handle_task_finished(task), "completed")
+	return task.data
+
+
+## Request a list of contents (documents and/or collections) inside a collection, specified by its [i]id[/i]. This method will return a [code]FirestoreTask[/code] object, representing a reference to the request issued. If saved into a variable, the [code]FirestoreTask[/code] object can be used to yield checked the [code]result_query(result)[/code] signal, or the more generic [code]task_finished(result)[/code] signal.
+## [b]Note:[/b] [code]order_by[/code] does not work in offline mode.
+## ex.
+## [code]var query_task : FirestoreTask = Firebase.Firestore.query(FirestoreQuery.new())[/code]
+## [code]await query_task.task_finished[/code]
+## Since the emitted signal is holding an argument, it can be directly retrieved as a return variable from the [code]yield()[/code] function.
 ##
 ## ex.
-## [code]var query_results = await Firebase.Firestore.query(FirestoreQuery.new())[/code]
+## [code]var result : Array = await query_task.task_finished[/code]
 ##
-## [b]Warning:[/b] It currently does not work offline!
-##
-## @args query
-## @arg-types FirestoreQuery
-## @return Variant representing the array results of the aggregation query
-func aggregation_query(query : FirestoreQuery) -> Variant:
-	if query.aggregations.size() == 0:
-		Firebase._printerr("Aggregation query sent with no aggregation values: " + str(query))
-		return 0
-		
-	var task : FirestoreTask = FirestoreTask.new()
-	task.action = FirestoreTask.Task.TASK_AGG_QUERY
-	
-	var body: Dictionary = { structuredAggregationQuery = { structuredQuery = query.query, aggregations = query.aggregations } }
-	var	url: String = _base_url + _extended_url + _agg_query_suffix
-
-	task.data = query
-	task._fields = JSON.stringify(body)
-	task._url = url
-	_pooled_request(task)
-	var result = await _handle_task_finished(task)
-	return result
-
-## Request a list of contents (documents and/or collections) inside a collection, specified by its [i]id[/i]. This method will return an Array[FirestoreDocument]
 ## @args collection_id, page_size, page_token, order_by
 ## @arg-types String, int, String, String
 ## @arg-defaults , 0, "", ""
-## @return Array[FirestoreDocument]
+## @return FirestoreTask
 func list(path : String = "", page_size : int = 0, page_token : String = "", order_by : String = "") -> Array:
 	var task : FirestoreTask = FirestoreTask.new()
 	task.action = FirestoreTask.Task.TASK_LIST
@@ -164,16 +140,13 @@ func list(path : String = "", page_size : int = 0, page_token : String = "", ord
 	task.data = [path, page_size, page_token, order_by]
 	task._url = url
 	_pooled_request(task)
-	
-	return await _handle_task_finished(task)
 
+	yield(_handle_task_finished(task), "completed")
+	return task.data
 
 func _set_config(config_json : Dictionary) -> void:
 	_config = config_json
-	_cache_loc = _config["cacheLocation"]
 	_extended_url = _extended_url.replace("[PROJECT_ID]", _config.projectId)
-
-	# Since caching is causing a lot of issues, I'm removing this check for now. We will revisit this in the future, once we have some time to investigate why the cache is being corrupted.
 
 	_check_emulating()
 
@@ -189,28 +162,29 @@ func _check_emulating() -> void :
 			_base_url = "http://localhost:{port}/{version}/".format({ version = _API_VERSION, port = port })
 
 func _pooled_request(task : FirestoreTask) -> void:
-	if (auth == null or auth.is_empty()) and not Firebase.emulating:
+	if (auth == null or auth.empty()) and not Firebase.emulating:
 		Firebase._print("Unauthenticated request issued...")
 		Firebase.Auth.login_anonymous()
-		var result : Array = await Firebase.Auth.auth_request
+		var result : Array = yield(Firebase.Auth, "auth_request")
 		if result[0] != 1:
 			_check_auth_error(result[0], result[1])
 		Firebase._print("Client connected as Anonymous")
 
 	if not Firebase.emulating:
-		task._headers = PackedStringArray([_AUTHORIZATION_HEADER + auth.idtoken])
+		task._headers = PoolStringArray([_AUTHORIZATION_HEADER + auth.idtoken])
 
 	var	http_request = HTTPRequest.new()
-	http_request.timeout = 5
+	http_request.timeout = 5 # See if this can be set to a different value, or removed altogether.
 	Utilities.fix_http_request(http_request)
 	add_child(http_request)
-	http_request.request_completed.connect(
-		func(result, response_code, headers, body): 
-			task._on_request_completed(result, response_code, headers, body)
-			http_request.queue_free()
-	)
-	
-	http_request.request(task._url, task._headers, task._method, task._fields)
+
+	http_request.connect("request_completed", self, "_on_pooled_request_completed", [http_request, task])
+	# request(url: String, custom_headers: PoolStringArray = PoolStringArray(  ), ssl_validate_domain: bool = true, method: Method = 0, request_data: String = "")
+	http_request.request(task._url, task._headers, true, task._method, task._fields)
+
+func _on_pooled_request_completed(result : int, response_code : int, headers : PoolStringArray, body : PoolByteArray, request : HTTPRequest, task : FirestoreTask) -> void:
+	task._on_request_completed(result, response_code, headers, body)
+	request.queue_free()
 
 func _on_FirebaseAuth_login_succeeded(auth_result : Dictionary) -> void:
 	auth = auth_result
@@ -235,9 +209,9 @@ func _check_auth_error(code : int, message : String) -> void:
 	Firebase._printerr(message)
 
 func _handle_task_finished(task : FirestoreTask):
-	await task.task_finished
-	
+	yield(task, "task_finished")
+
 	if task.error.keys().size() > 0:
-		error.emit(task.error)
-		
+		emit_signal("error", task.error)
+
 	return task.data

@@ -1,12 +1,15 @@
 extends Control
 
-@onready var name_edit = $CenterContainer/VBoxContainer/NameEdit
-@onready var login_button = $CenterContainer/VBoxContainer/LoginButton
-@onready var google_login_button: Button = get_node_or_null("CenterContainer/VBoxContainer/GoogleLoginButton")
-@onready var remember_check: CheckBox = $CenterContainer/VBoxContainer/RememberCheck
-@onready var status_label: Label = $CenterContainer/VBoxContainer/StatusLabel
-@onready var cancel_button: Button = $CenterContainer/VBoxContainer/CancelButton
-@onready var firebase = get_node_or_null("/root/Firebase")
+var ui = {
+	"name_edit": get_node("CenterContainer/VBoxContainer/NameEdit"),
+	"login_button": get_node("CenterContainer/VBoxContainer/LoginButton"),
+	"google_login_button": get_node_or_null("CenterContainer/VBoxContainer/GoogleLoginButton"),
+	"remember_check": get_node("CenterContainer/VBoxContainer/RememberCheck"),
+	"status_label": get_node("CenterContainer/VBoxContainer/StatusLabel"),
+	"cancel_button": get_node("CenterContainer/VBoxContainer/CancelButton")
+}
+
+onready var firebase = get_node_or_null("/root/Firebase")
 
 var auth_in_progress: bool = false
 var cancel_requested: bool = false
@@ -15,16 +18,16 @@ var avatar_container: VBoxContainer
 
 func _ready():
 	print("[Login.gd] _ready: Starting.")
-	login_button.connect("pressed", Callable(self, "_on_login_pressed"))
-	if google_login_button != null:
-		google_login_button.connect("pressed", Callable(self, "_on_google_login_pressed"))
-	cancel_button.connect("pressed", Callable(self, "_on_cancel_pressed"))
+	ui.login_button.connect("pressed", self, "_on_login_pressed")
+	if ui.google_login_button != null:
+		ui.google_login_button.connect("pressed", self, "_on_google_login_pressed")
+	ui.cancel_button.connect("pressed", self, "_on_cancel_pressed")
 	_load_local_name()
 	print("[Login.gd] _ready: Local name loaded.")
 
 	# Scale login buttons and input fields to 2x for better readability
 	var scale_factor := 4.0
-	var to_scale: Array = [name_edit, login_button, google_login_button, cancel_button, remember_check]
+	var to_scale: Array = [ui.name_edit, ui.login_button, ui.google_login_button, ui.cancel_button, ui.remember_check]
 	for c in to_scale:
 		if c != null:
 			c.scale = Vector2(scale_factor, scale_factor)
@@ -37,23 +40,23 @@ func _ready():
 	# Check if Firebase is available (autoload singleton present)
 	if firebase == null:
 		print("[Login.gd] _ready: Firebase plugin not found.")
-		if google_login_button:
-			google_login_button.disabled = true
-			google_login_button.visible = false
+		if ui.google_login_button:
+			ui.google_login_button.disabled = true
+			ui.google_login_button.visible = false
 
 	print("[Login.gd] _ready: Firebase check complete.")
 
 	# Hide Google login for this build (local saves only)
-	if google_login_button != null:
-		google_login_button.visible = false
-		google_login_button.disabled = true
+	if ui.google_login_button != null:
+		ui.google_login_button.visible = false
+		ui.google_login_button.disabled = true
 	
 	if firebase:
 		print("[Login.gd] _ready: Connecting Firebase signals.")
 		# Connect correct Firebase Auth signals for GodotFirebase
-		firebase.Auth.login_succeeded.connect(Callable(self, "_on_authentication_succeeded"))
-		firebase.Auth.login_failed.connect(Callable(self, "_on_authentication_failed"))
-		firebase.Auth.logged_out.connect(Callable(self, "_on_logged_out"))
+		firebase.Auth.connect("login_succeeded", self, "_on_authentication_succeeded")
+		firebase.Auth.connect("login_failed", self, "_on_authentication_failed")
+		firebase.Auth.connect("logged_out", self, "_on_logged_out")
 		_web_client_id = _read_env_value("webClientId")
 
 		# Web: handle return from provider redirect (token in URL)
@@ -86,8 +89,8 @@ func _ready():
 	if Engine.has_singleton("GodotGetImage"):
 		print("[Login.gd] _ready: GodotGetImage plugin found, connecting signals.")
 		var image_getter = get_node("/root/GodotGetImage")
-		image_getter.image_selected.connect(_on_image_selected)
-		image_getter.request_cancelled.connect(_on_avatar_picker_cancelled)
+		image_getter.connect("image_selected", self, "_on_image_selected")
+		image_getter.connect("request_cancelled", self, "_on_avatar_picker_cancelled")
 	
 	print("[Login.gd] _ready: Finished.")
 
@@ -96,7 +99,7 @@ func _on_login_pressed():
 	print("[Login.gd] _on_login_pressed: Button pressed.")
 	if auth_in_progress:
 		return
-	var player_name = name_edit.text.strip_edges()
+	var player_name = ui.name_edit.text.strip_edges()
 	# If empty, default to Guest
 	if player_name == "":
 		player_name = "Guest"
@@ -116,7 +119,7 @@ func _on_google_login_pressed():
 	if auth_in_progress:
 		return
 	# Hidden/disabled in this build
-	status_label.text = "Google sign-in is disabled"
+	ui.status_label.text = "Google sign-in is disabled"
 
 func _on_authentication_succeeded(auth_data):
 	print("[Login.gd] _on_authentication_succeeded: Firebase authentication succeeded!")
@@ -124,13 +127,13 @@ func _on_authentication_succeeded(auth_data):
 		# User chose to cancel while auth was in flight; revert and stay on login
 		cancel_requested = false
 		_end_auth()
-		status_label.text = "Canceled"
+		ui.status_label.text = "Canceled"
 		if firebase != null and firebase.Auth.is_logged_in():
 			firebase.Auth.logout()
 		return
 	# Persist auth if requested
-	if (remember_check == null or remember_check.button_pressed) and not OS.has_feature("web"):
-		status_label.text = "Saving..."
+	if (ui.remember_check == null or ui.remember_check.button_pressed) and not OS.has_feature("web"):
+		ui.status_label.text = "Saving..."
 		firebase.Auth.save_auth(auth_data)
 	
 	PlayerManager.load_player_data(auth_data)
@@ -148,7 +151,7 @@ func _on_authentication_failed(code, message):
 	var error_message = str(message) if message != null else "No error message provided."
 	var msg = "Firebase authentication failed: " + str(code) + ": " + error_message
 	print(msg)
-	status_label.text = msg
+	ui.status_label.text = msg
 	_end_auth()
 
 func _on_logged_out():
@@ -159,8 +162,8 @@ func _on_cancel_pressed():
 	print("[Login.gd] _on_cancel_pressed: Cancel button pressed.")
 	cancel_requested = true
 	auth_in_progress = false
-	cancel_button.visible = false
-	status_label.text = "Canceling..."
+	ui.cancel_button.visible = false
+	ui.status_label.text = "Canceling..."
 	if firebase != null:
 		# Remove saved auth to prevent auto-login and logout to clear any session
 		firebase.Auth.remove_auth()
@@ -173,8 +176,8 @@ func _on_cancel_pressed():
 func _prompt_for_avatar():
 	print("[Login.gd] _prompt_for_avatar: Prompting for avatar.")
 	$CenterContainer.visible = false
-	status_label.text = "Select an avatar"
-	status_label.visible = true
+	ui.status_label.text = "Select an avatar"
+	ui.status_label.visible = true
 
 	avatar_container = VBoxContainer.new()
 	avatar_container.set_alignment(BoxContainer.ALIGNMENT_CENTER)
@@ -187,12 +190,12 @@ func _prompt_for_avatar():
 		var gallery_button = Button.new()
 		gallery_button.text = "Select from Gallery"
 		avatar_container.add_child(gallery_button)
-		gallery_button.pressed.connect(_on_gallery_pressed)
+		gallery_button.connect("pressed", self, "_on_gallery_pressed")
 
 		var camera_button = Button.new()
 		camera_button.text = "Take Photo"
 		avatar_container.add_child(camera_button)
-		camera_button.pressed.connect(_on_camera_pressed)
+		camera_button.connect("pressed", self, "_on_camera_pressed")
 	else: # iOS and Desktop/Web
 		print("[Login.gd] _prompt_for_avatar: iOS or Desktop detected, showing placeholders.")
 		var grid = GridContainer.new()
@@ -208,12 +211,12 @@ func _prompt_for_avatar():
 			button.custom_minimum_size = Vector2(150, 150)
 			button.ignore_texture_size = true
 			grid.add_child(button)
-			button.pressed.connect(_on_placeholder_selected.bind(path))
+			button.connect("pressed", self, "_on_placeholder_selected", [path])
 
 	var skip_button = Button.new()
 	skip_button.text = "Skip"
 	avatar_container.add_child(skip_button)
-	skip_button.pressed.connect(_on_skip_avatar_pressed)
+	skip_button.connect("pressed", self, "_on_skip_avatar_pressed")
 
 func _generate_placeholders() -> Array:
 	print("[Login.gd] _generate_placeholders: Generating 9 placeholder images.")
@@ -302,8 +305,8 @@ func _on_avatar_processed(avatar_path = null):
 		avatar_container.queue_free()
 	
 	$CenterContainer.visible = true
-	status_label.text = ""
-	status_label.visible = false
+	ui.status_label.text = ""
+	ui.status_label.visible = false
 
 	print("[Login.gd] _on_avatar_processed: Changing to Menu scene.")
 	get_tree().change_scene_to_file("res://Scenes/Menu.tscn")
@@ -340,25 +343,25 @@ func _begin_auth(message: String):
 	print("[Login.gd] _begin_auth: " + message)
 	auth_in_progress = true
 	cancel_requested = false
-	status_label.text = message
-	cancel_button.visible = true
+	ui.status_label.text = message
+	ui.cancel_button.visible = true
 	_set_ui_enabled(false)
 
 func _end_auth():
 	print("[Login.gd] _end_auth: Ending auth process.")
 	auth_in_progress = false
-	cancel_button.visible = false
+	ui.cancel_button.visible = false
 	_set_ui_enabled(true)
 
 func _set_ui_enabled(enabled: bool):
-	if login_button:
-		login_button.disabled = not enabled
-	if google_login_button:
-		google_login_button.disabled = not enabled
-	if name_edit:
-		name_edit.editable = enabled
-	if remember_check:
-		remember_check.disabled = not enabled
+	if ui.login_button:
+		ui.login_button.disabled = not enabled
+	if ui.google_login_button:
+		ui.google_login_button.disabled = not enabled
+	if ui.name_edit:
+		ui.name_edit.editable = enabled
+	if ui.remember_check:
+		ui.remember_check.disabled = not enabled
 
 func _load_local_name():
 	# Prefer JSON save via SaveManager; migrate legacy player.cfg if found
@@ -366,7 +369,7 @@ func _load_local_name():
 	if typeof(data) == TYPE_DICTIONARY and data.has("player_name"):
 		var player_name = data["player_name"]
 		if player_name != null and player_name != "":
-			name_edit.text = player_name
+			ui.name_edit.text = player_name
 		PlayerManager.player_data = data
 		return
 	# Legacy config migration
@@ -375,7 +378,7 @@ func _load_local_name():
 	if err == OK:
 		var n = cfg.get_value("player", "name", "")
 		if typeof(n) == TYPE_STRING and n != "":
-			name_edit.text = n
+			ui.name_edit.text = n
 			PlayerManager.player_data["player_name"] = n
 			SaveManager.save_player(PlayerManager.player_data)
 

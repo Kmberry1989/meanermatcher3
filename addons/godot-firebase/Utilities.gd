@@ -2,13 +2,12 @@ extends Node
 class_name Utilities
 
 static func get_json_data(value):
-	if value is PackedByteArray:
+	if value is PoolByteArray:
 		value = value.get_string_from_utf8()
-	var json = JSON.new()
-	var json_parse_result = json.parse(value)
-	if json_parse_result == OK:
-		return json.data
-	
+	var json_parse_result = JSON.parse(value)
+	if json_parse_result.error == OK:
+		return json_parse_result.result
+
 	return null
 
 
@@ -23,15 +22,15 @@ static func dict2fields(dict : Dictionary) -> Dictionary:
 		if field is String and "." in field:
 			var keys: Array = field.split(".")
 			field = keys.pop_front()
-			keys.reverse()
+			keys.invert()
 			for key in keys:
 				field_value = { key : field_value }
-		
+
 		match typeof(field_value):
 			TYPE_NIL: var_type = "nullValue"
 			TYPE_BOOL: var_type = "booleanValue"
 			TYPE_INT: var_type = "integerValue"
-			TYPE_FLOAT: var_type = "doubleValue"
+			TYPE_REAL: var_type = "doubleValue"
 			TYPE_STRING: var_type = "stringValue"
 			TYPE_DICTIONARY:
 				if is_field_timestamp(field_value):
@@ -43,29 +42,27 @@ static func dict2fields(dict : Dictionary) -> Dictionary:
 			TYPE_ARRAY:
 				var_type = "arrayValue"
 				field_value = {"values": array2fields(field_value)}
-				
+
 		if fields.has(field) and fields[field].has("mapValue") and field_value.has("fields"):
 			for key in field_value["fields"].keys():
 				fields[field]["mapValue"]["fields"][key] = field_value["fields"][key]
 		else:
 			fields[field] = { var_type : field_value }
-		
+
 	return {'fields' : fields}
 
-
-class FirebaseTypeConverter extends RefCounted:
+class FirebaseTypeConverter extends Reference:
 	var converters = {
-		"nullValue": _to_null,
-		"booleanValue": _to_bool,
-		"integerValue": _to_int,
-		"doubleValue": _to_float,
-		"vector2Value": _to_vector2,
-		"vector2iValue": _to_vector2i
+		"nullValue": "_to_null",
+		"booleanValue": "_to_bool",
+		"integerValue": "_to_int",
+		"doubleValue": "_to_float"
 	}
 
 	func convert_value(type, value):
 		if converters.has(type):
-			return converters[type].call(value)
+			return call(converters[type], value)
+
 		return value
 
 	func _to_null(value):
@@ -79,12 +76,6 @@ class FirebaseTypeConverter extends RefCounted:
 
 	func _to_float(value):
 		return float(value)
-	
-	func _to_vector2(value):
-		return str_to_var(value) as Vector2
-	
-	func _to_vector2i(value):
-		return str_to_var(value) as Vector2i
 
 static func from_firebase_type(value):
 	if value == null:
@@ -98,25 +89,18 @@ static func from_firebase_type(value):
 		value = Time.get_datetime_dict_from_datetime_string(value.values()[0], false)
 	else:
 		var converter = FirebaseTypeConverter.new()
-		var type: String = value.keys()[0]
-		value = value.values()[0]
-		if type == "stringValue":
-			var split_type: String = value.split("(")[0]
-			if split_type in [ "Vector2", "Vector2i" ]:
-				type = "{0}Value".format([split_type.to_lower()])
-		value = converter.convert_value(type, value)
+		value = converter.convert_value(value.keys()[0], value.values()[0])
 
 	return value
 
-
-static func to_firebase_type(value : Variant) -> Dictionary:
+static func to_firebase_type(value) -> Dictionary:
 	var var_type : String = ""
-	
+
 	match typeof(value):
 		TYPE_NIL: var_type = "nullValue"
 		TYPE_BOOL: var_type = "booleanValue"
 		TYPE_INT: var_type = "integerValue"
-		TYPE_FLOAT: var_type = "doubleValue"
+		TYPE_REAL: var_type = "doubleValue"
 		TYPE_STRING: var_type = "stringValue"
 		TYPE_DICTIONARY:
 			if is_field_timestamp(value):
@@ -128,18 +112,15 @@ static func to_firebase_type(value : Variant) -> Dictionary:
 		TYPE_ARRAY:
 			var_type = "arrayValue"
 			value = {"values": array2fields(value)}
-		TYPE_VECTOR2, TYPE_VECTOR2I:
-			var_type = "stringValue"
-			value = var_to_str(value)
-		
+
 	return { var_type : value }
-	
+
 # Pass the .fields inside a Firestore Document to print out the Dictionary { 'key' : 'value' }
 static func fields2dict(doc) -> Dictionary:
 	var dict = {}
 	if doc.has("fields"):
 		var fields = doc["fields"]
-		
+
 		for field in fields.keys():
 			if fields[field].has("mapValue"):
 				dict[field] = (fields2dict(fields[field].mapValue))
@@ -175,7 +156,7 @@ static func array2fields(array : Array) -> Array:
 			TYPE_NIL: var_type = "nullValue"
 			TYPE_BOOL: var_type = "booleanValue"
 			TYPE_INT: var_type = "integerValue"
-			TYPE_FLOAT: var_type = "doubleValue"
+			TYPE_REAL: var_type = "doubleValue"
 			TYPE_STRING: var_type = "stringValue"
 			TYPE_ARRAY: var_type = "arrayValue"
 			_: var_type = "FieldTransform"
@@ -240,123 +221,135 @@ static func fix_http_request(http_request):
 
 static func is_web() -> bool:
 	return OS.get_name() in ["HTML5", "Web"]
-	
 
-class MultiSignal extends RefCounted:
-	signal completed(with_signal)
-	signal all_completed()
 
-	var _has_signaled := false
-	var _early_exit := false
+class MultiSignal extends Reference:
+	signal completed(sig)
 
-	var signal_count := 0
+	func add_signal(obj, sig : String):
+		obj.connect(sig, self, "_on_object_signaled", [sig], CONNECT_ONESHOT)
 
-	func _init(sigs : Array[Signal], early_exit := true, should_oneshot := true) -> void:
-		_early_exit = early_exit
-		for sig in sigs:
-			add_signal(sig, should_oneshot)
+	func _on_object_signaled(sig : String) -> void:
+		emit_signal("completed", sig)
 
-	func add_signal(sig : Signal, should_oneshot) -> void:
-		signal_count += 1
-		sig.connect(
-			func():
-				if not _has_signaled and _early_exit:
-					completed.emit(sig)
-					_has_signaled = true
-				elif not _early_exit:
-					completed.emit(sig)
-					signal_count -= 1
-					if signal_count <= 0: # Not sure how it could be less than
-						all_completed.emit()
-		, CONNECT_ONE_SHOT if should_oneshot else CONNECT_REFERENCE_COUNTED
-	)
-	
-class SignalReducer extends RefCounted: # No need for a node, as this deals strictly with signals, which can be on any object.
-	signal completed
+class SignalReducer extends Reference:
+	signal completed()
 
-	var awaiters : Array[Signal] = []
-
-	var reducers = {
-		0 : func(): completed.emit(),
-		1 : func(p): completed.emit(),
-		2 : func(p1, p2): completed.emit(),
-		3 : func(p1, p2, p3): completed.emit(),
-		4 : func(p1, p2, p3, p4): completed.emit()
+	var _map = {
+		0: "_zero",
+		1: "_one",
+		2: "_two",
+		3: "_three",
+		4: "_four",
+		5: "_five"
 	}
 
-	func add_signal(sig : Signal, param_count : int = 0) -> void:
-		assert(param_count < 5, "Too many parameters to reduce, just add more!")
-		sig.connect(reducers[param_count], CONNECT_ONE_SHOT) # May wish to not just one-shot, but instead track all of them firing
-		
-class SignalReducerWithResult extends RefCounted: # No need for a node, as this deals strictly with signals, which can be on any object.
-	signal completed(result)
+	func _init(obj, sig : String, param_count : int) -> void:
+		obj.connect(sig, self, _map[param_count], [], CONNECT_ONESHOT)
 
-	var awaiters : Array[Signal] = []
+	func _zero():
+		emit_signal("completed")
 
-	var reducers = {
-		0 : func(): completed.emit(),
-		1 : func(p): completed.emit({1 : p}),
-		2 : func(p1, p2): completed.emit({ 1 : p1, 2 : p2 }),
-		3 : func(p1, p2, p3): completed.emit({ 1 : p1, 2 : p2, 3 : p3 }),
-		4 : func(p1, p2, p3, p4): completed.emit({ 1 : p1, 2 : p2, 3 : p3, 4 : p4 })
+	func _one(p1):
+		emit_signal("completed")
+
+	func _two(p1, p2):
+		emit_signal("completed")
+
+	func _three(p1, p2, p3):
+		emit_signal("completed")
+
+	func _four(p1, p2, p3, p4):
+		emit_signal("completed")
+
+	func _five(p1, p2, p3, p4, p5):
+		emit_signal("completed")
+
+class SignalReducerWithResult extends Reference:
+	signal completed(results)
+
+	var _map = {
+		0: "_zero",
+		1: "_one",
+		2: "_two",
+		3: "_three",
+		4: "_four",
+		5: "_five"
 	}
 
-	func add_signal(sig : Signal, param_count : int = 0) -> void:
-		assert(param_count < 5, "Too many parameters to reduce, just add more!")
-		sig.connect(reducers[param_count], CONNECT_ONE_SHOT) # May wish to not just one-shot, but instead track all of them firing
+	func _init(obj, sig : String, param_count : int) -> void:
+		obj.connect(sig, self, _map[param_count], [], CONNECT_ONESHOT)
 
-class ObservableDictionary extends RefCounted:
+	func _zero():
+		emit_signal("completed")
+
+	func _one(p1):
+		emit_signal("completed", { "1": p1 })
+
+	func _two(p1, p2):
+		emit_signal("completed", {"1": p1, "2": p2})
+
+	func _three(p1, p2, p3):
+		emit_signal("completed", {"1": p1, "2": p2, "3": p3})
+
+	func _four(p1, p2, p3, p4):
+		emit_signal("completed", {"1": p1, "2": p2, "3": p3, "4": p4})
+
+	func _five(p1, p2, p3, p4, p5):
+		emit_signal("completed", {"1": p1, "2": p2, "3": p3, "4": p4, "5": p5})
+
+class ObservableDictionary extends Reference:
 	signal keys_changed()
-	
+
 	var _internal : Dictionary
 	var is_notifying := true
-	
+
 	func _init(copy : Dictionary = {}) -> void:
 		_internal = copy
-		
-	func add(key : Variant, value : Variant) -> void:
+
+	func add(key, value) -> void:
 		_internal[key] = value
 		if is_notifying:
-			keys_changed.emit()
-	
-	func update(key : Variant, value : Variant) -> void:
+			emit_signal("keys_changed")
+
+	func update(key, value) -> void:
 		_internal[key] = value
 		if is_notifying:
-			keys_changed.emit()	
-			
-	func has(key : Variant) -> bool:
+			emit_signal("keys_changed")
+
+	func has(key) -> bool:
 		return _internal.has(key)
-	
+
 	func keys():
 		return _internal.keys()
-		
+
 	func values():
 		return _internal.values()
-	
-	func erase(key : Variant) -> bool:
+
+	func erase(key) -> bool:
 		var result = _internal.erase(key)
 		if is_notifying:
-			keys_changed.emit()
-		
+			emit_signal("keys_changed")
+
 		return result
-	
-	func get_value(key : Variant) -> Variant:
+
+	func get_value(key):
 		return _internal[key]
-		
-	func _get(property: StringName) -> Variant:
+
+	func _get(property: String):
 		if _internal.has(property):
 			return _internal[property]
-		
+
 		return false
-		
-	func _set(property: StringName, value: Variant) -> bool:
+
+	func _set(property: String, value) -> bool:
 		update(property, value)
 		return true
 
 class AwaitDetachable extends Node2D:
-	var awaiter : Signal
+	var awaiter : String
 
-	func _init(freeable_node, await_signal : Signal) -> void:
+	func _init(freeable_node, await_signal : String) -> void:
 		awaiter = await_signal
 		add_child(freeable_node)
-		awaiter.connect(queue_free)
+		freeable_node.connect(await_signal, self, "queue_free", [], CONNECT_ONESHOT)

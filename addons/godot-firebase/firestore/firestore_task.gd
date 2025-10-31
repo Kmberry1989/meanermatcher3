@@ -17,9 +17,9 @@
 ##
 ## @tutorial https://github.com/GodotNuts/GodotFirebase/wiki/Firestore#FirestoreTask
 
-@tool
+tool
 class_name FirestoreTask
-extends RefCounted
+extends Reference
 
 ## Emitted when a request is completed. The request can be successful or not successful: if not, an [code]error[/code] Dictionary will be passed as a result.
 ## @arg-types Variant
@@ -31,7 +31,6 @@ enum Task {
 	TASK_PATCH,     ## A PATCH Request Task, processing a update() request
 	TASK_DELETE,    ## A DELETE Request Task, processing a delete() request
 	TASK_QUERY,     ## A POST Request Task, processing a query() request
-	TASK_AGG_QUERY,     ## A POST Request Task, processing an aggregation_query() request
 	TASK_LIST,      ## A POST Request Task, processing a list() request
 	TASK_COMMIT      ## A POST Request Task that hits the write api
 }
@@ -43,35 +42,35 @@ const TASK_MAP = {
 	Task.TASK_PATCH: "UPDATE DOCUMENT",
 	Task.TASK_DELETE: "DELETE DOCUMENT",
 	Task.TASK_QUERY: "QUERY COLLECTION",
-	Task.TASK_LIST: "LIST DOCUMENTS", 
-	Task.TASK_COMMIT: "COMMIT DOCUMENT",
-	Task.TASK_AGG_QUERY: "AGG QUERY COLLECTION"
+	Task.TASK_LIST: "LIST DOCUMENTS",
+	Task.TASK_COMMIT: "COMMIT DOCUMENT"
 }
 
 ## The code indicating the request Firestore is processing.
 ## See @[enum FirebaseFirestore.Requests] to get a full list of codes identifiers.
 ## @setter set_action
-var action : int = -1 : set = set_action
+var action : int = -1 setget set_action
 
 ## A variable, temporary holding the result of the request.
 var data
-var error: Dictionary
-var document: FirestoreDocument
+var error : Dictionary
+var document : FirestoreDocument
 
-var _response_headers: PackedStringArray = PackedStringArray()
-var _response_code: int = 0
+var _response_headers : PoolStringArray = PoolStringArray()
+var _response_code : int = 0
 
-var _method: int = -1
-var _url: String = ""
-var _fields: String = ""
-var _headers: PackedStringArray = []
+var _method : int = -1
+var _url : String = ""
+var _fields : String = ""
+var _headers : PoolStringArray = []
 
-func _on_request_completed(result: int, response_code: int, headers: PackedStringArray, body: PackedByteArray) -> void:
+func _on_request_completed(result : int, response_code : int, headers : PoolStringArray, body : PoolByteArray) -> void:
 	var bod = body.get_string_from_utf8()
 	if bod != "":
 		bod = Utilities.get_json_data(bod)
-	
+
 	var failed: bool = bod is Dictionary and bod.has("error") and response_code != HTTPClient.RESPONSE_OK
+
 	# Probably going to regret this...
 	if response_code == HTTPClient.RESPONSE_OK:
 		match action:
@@ -85,18 +84,6 @@ func _on_request_completed(result: int, response_code: int, headers: PackedStrin
 				for doc in bod:
 					if doc.has('document'):
 						data.append(FirestoreDocument.new(doc.document))
-			Task.TASK_AGG_QUERY:
-				var agg_results = []
-				for agg_result in bod:
-					var idx = 0
-					var query_results = {}
-					for field_value in agg_result.result.aggregateFields.keys():
-						var agg = data.aggregations[idx]
-						var field = agg_result.result.aggregateFields[field_value]
-						query_results[agg.keys()[0]] = Utilities.from_firebase_type(field)
-						idx += 1
-					agg_results.push_back(query_results)
-				data = agg_results
 			Task.TASK_LIST:
 				data = []
 				if bod.has('documents'):
@@ -113,16 +100,16 @@ func _on_request_completed(result: int, response_code: int, headers: PackedStrin
 
 		Firebase._printerr("Action in error was: " + str(action) + " " + description)
 		build_error(bod, action, description)
-	
-	task_finished.emit()
-		
+
+	emit_signal("task_finished")
+
 func build_error(_error, action, description) -> void:
 	if _error:
 		if _error is Array and _error.size() > 0 and _error[0].has("error"):
 			_error = _error[0].error
 		elif _error is Dictionary and _error.keys().size() > 0 and _error.has("error"):
 			_error = _error.error
-		
+
 		error = _error
 	else:
 		#error.code, error.status, error.message
@@ -132,7 +119,7 @@ func build_error(_error, action, description) -> void:
 				 "message": "Error: %s - %s" % [action, description]
 			}
 		}
-	
+
 	data = null
 
 func set_action(value : int) -> void:
@@ -140,7 +127,7 @@ func set_action(value : int) -> void:
 	match action:
 		Task.TASK_GET, Task.TASK_LIST:
 			_method = HTTPClient.METHOD_GET
-		Task.TASK_POST, Task.TASK_QUERY, Task.TASK_AGG_QUERY:
+		Task.TASK_POST, Task.TASK_QUERY:
 			_method = HTTPClient.METHOD_POST
 		Task.TASK_PATCH:
 			_method = HTTPClient.METHOD_PATCH
@@ -148,8 +135,6 @@ func set_action(value : int) -> void:
 			_method = HTTPClient.METHOD_DELETE
 		Task.TASK_COMMIT:
 			_method = HTTPClient.METHOD_POST
-		_:
-			assert(false)
 
 
 func _merge_dict(dic_a : Dictionary, dic_b : Dictionary, nullify := false) -> Dictionary:
@@ -177,7 +162,7 @@ func _merge_array(arr_a : Array, arr_b : Array, nullify := false) -> Array:
 		var index : int = i - deletions
 		var val = arr_b[index]
 		if val == null and nullify:
-			ret.remove_at(index)
+			ret.remove(index)
 			deletions += i
 		elif val is Array:
 			ret[index] = _merge_array(ret[index] if ret[index] else [], val)

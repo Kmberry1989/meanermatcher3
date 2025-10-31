@@ -1,25 +1,25 @@
-## @meta-authors Nicoló 'fenix' Santilio, Kyle Szklenski
+## @meta-authors Nicoló 'fenix' Santilio
 ## @meta-version 1.4
 ## A firestore query.
 ## Documentation TODO.
-@tool
-extends RefCounted
+tool
+extends Reference
 class_name FirestoreQuery
 
 class Order:
-	var obj: Dictionary
+	var obj : Dictionary
 
 class Cursor:
-	var values: Array
-	var before: bool
+	var values : Array
+	var before : bool
 
-	func _init(v : Array,b : bool):
+	func _init(v : Array, b : bool):
 		values = v
 		before = b
 
 signal query_result(query_result)
 
-const TEMPLATE_QUERY: Dictionary = {
+const TEMPLATE_QUERY : Dictionary = {
 	select = {},
 	from = [],
 	where = {},
@@ -30,13 +30,11 @@ const TEMPLATE_QUERY: Dictionary = {
 	limit = 0
    }
 
-var query: Dictionary = {}
-var aggregations: Array[Dictionary] = []
-var sub_collection_path: String = ""
+var query : Dictionary = {}
 
 enum OPERATOR {
 	# Standard operators
-	OPERATOR_UNSPECIFIED,
+	OPERATOR_NSPECIFIED,
 	LESS_THAN,
 	LESS_THAN_OR_EQUAL,
 	GREATER_THAN,
@@ -65,6 +63,9 @@ enum DIRECTION {
 	DESCENDING
    }
 
+func _init():
+	return self
+
 
 # Select which fields you want to return as a reflection from your query.
 # Fields must be added inside a list. Only a field is accepted inside the list
@@ -89,6 +90,8 @@ func from(collection_id : String, all_descendants : bool = true) -> FirestoreQue
 	query["from"] = [{collectionId = collection_id, allDescendants = all_descendants}]
 	return self
 
+
+
 # @collections_array MUST be an Array of Arrays with this structure
 # [ ["collection_id", true/false] ]
 func from_many(collections_array : Array) -> FirestoreQuery:
@@ -104,7 +107,7 @@ func from_many(collections_array : Array) -> FirestoreQuery:
 # @operator : from FirestoreQuery.OPERATOR
 # @value : can be any type - String, int, bool, float
 # @chain : from FirestoreQuery.OPERATOR.[OR/AND], use it only if you want to chain "AND" or "OR" logic with futher where() calls
-# eg. super.where("name", OPERATOR.EQUAL, "Matt", OPERATOR.AND).where("age", OPERATOR.LESS_THAN, 20)
+# eg. .where("name", OPERATOR.EQUAL, "Matt", OPERATOR.AND).where("age", OPERATOR.LESS_THAN, 20)
 func where(field : String, operator : int, value = null, chain : int = -1):
 	if operator in [OPERATOR.IS_NAN, OPERATOR.IS_NULL, OPERATOR.IS_NOT_NAN, OPERATOR.IS_NOT_NULL]:
 		if (chain in [OPERATOR.AND, OPERATOR.OR]) or (query.has("where") and query.where.has("compositeFilter")):
@@ -159,6 +162,8 @@ func order_by_fields(order_field_list : Array) -> FirestoreQuery:
 	query["orderBy"] = order_list
 	return self
 
+
+
 func start_at(value, before : bool) -> FirestoreQuery:
 	var cursor : Cursor = _cursor_object(value, before)
 	query["startAt"] = { values = cursor.values, before = cursor.before }
@@ -189,26 +194,6 @@ func limit(limit : int) -> FirestoreQuery:
 	return self
 
 
-func aggregate() -> FirestoreAggregation:
-	return FirestoreAggregation.new(self)
-	
-class FirestoreAggregation extends RefCounted:
-	var _query: FirestoreQuery
-	
-	func _init(query: FirestoreQuery) -> void:
-		_query = query
-	
-	func sum(field: String) -> FirestoreQuery:
-		_query.aggregations.push_back({ sum = { field = { fieldPath = field }}})
-		return _query
-		
-	func count(up_to: int) -> FirestoreQuery:
-		_query.aggregations.push_back({ count = { upTo = up_to }})
-		return _query
-		
-	func average(field: String) -> FirestoreQuery:
-		_query.aggregations.push_back({ avg = { field = { fieldPath = field }}})
-		return _query
 
 # UTILITIES ----------------------------------------
 
@@ -251,5 +236,5 @@ func clean() -> void:
 func _to_string() -> String:
 	var pretty : String = "QUERY:\n"
 	for key in query.keys():
-		pretty += "- {key} = {value}\n".format({key = key, value = query.get(key)})
+	   pretty += "- {key} = {value}\n".format({key = key, value = query.get(key)})
 	return pretty
